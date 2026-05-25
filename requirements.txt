@@ -1,0 +1,18 @@
+# Framework web
+Flask==2.3.3
+Werkzeug==2.3.7
+
+# Vision et encodage d'images
+torch==2.0.1
+torchvision==0.15.2
+Pillow==10.0.0
+
+# Traitement numérique
+numpy==1.24.3
+
+# Utilitaires
+tqdm==4.66.1
+python-dotenv==1.0.0
+
+# Optional: GPU support (uncomment if using CUDA)
+# torch-cuda-runtime==11.8 (install manually with PyTorch)

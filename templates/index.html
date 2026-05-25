@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visual Search — Moteur de Recherche Visuel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink:      #0a0a0f;
+      --ink-2:    #1c1c2e;
+      --surface:  #f7f6f2;
+      --muted:    #9b9aaa;
+      --accent:   #3d5afe;
+      --accent-2: #00e5ff;
+      --gold:     #ffd600;
+      --white:    #ffffff;
+      --radius:   16px;
+      --shadow:   0 24px 64px rgba(10,10,20,.13);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--surface);
+      color: var(--ink);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: .5;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 48px;
+      backdrop-filter: blur(20px);
+      background: rgba(247,246,242,.82);
+      border-bottom: 1px solid rgba(0,0,0,.06);
+    }
+
+    .nav-logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.15rem;
+      letter-spacing: -.02em;
+      color: var(--ink);
+      text-decoration: none;
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .nav-logo-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: inline-block;
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%       { transform: scale(1.4); opacity: .7; }
+    }
+
+    .nav-badge {
+      font-size: .72rem;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 120px 24px 80px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    /* Blobs décoratifs */
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blob-1 {
+      width: 480px; height: 480px;
+      background: radial-gradient(circle, rgba(61,90,254,.18) 0%, transparent 70%);
+      top: -100px; left: -120px;
+      animation: float1 8s ease-in-out infinite;
+    }
+    .blob-2 {
+      width: 360px; height: 360px;
+      background: radial-gradient(circle, rgba(0,229,255,.14) 0%, transparent 70%);
+      bottom: 60px; right: -80px;
+      animation: float2 10s ease-in-out infinite;
+    }
+    .blob-3 {
+      width: 240px; height: 240px;
+      background: radial-gradient(circle, rgba(255,214,0,.12) 0%, transparent 70%);
+      top: 40%; left: 60%;
+      animation: float1 12s ease-in-out infinite reverse;
+    }
+    @keyframes float1 {
+      0%, 100% { transform: translate(0,0); }
+      50%       { transform: translate(30px,-40px); }
+    }
+    @keyframes float2 {
+      0%, 100% { transform: translate(0,0); }
+      50%       { transform: translate(-25px, 35px); }
+    }
+
+    .hero-tag {
+      position: relative; z-index: 1;
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--ink);
+      color: var(--white);
+      font-size: .75rem;
+      font-weight: 500;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 8px 18px;
+      border-radius: 999px;
+      margin-bottom: 32px;
+      animation: fadeUp .7s ease both;
+    }
+
+    .hero-tag::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--gold);
+    }
+
+    .hero-title {
+      position: relative; z-index: 1;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.8rem, 7vw, 6rem);
+      line-height: 1.0;
+      letter-spacing: -.03em;
+      color: var(--ink);
+      margin-bottom: 24px;
+      animation: fadeUp .7s .1s ease both;
+    }
+
+    .hero-title span {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      position: relative; z-index: 1;
+      font-size: 1.1rem;
+      font-weight: 300;
+      color: var(--muted);
+      max-width: 480px;
+      line-height: 1.7;
+      margin: 0 auto 56px;
+      animation: fadeUp .7s .2s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── CARD ── */
+    .card {
+      position: relative; z-index: 1;
+      background: var(--white);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 48px;
+      width: 100%;
+      max-width: 620px;
+      animation: fadeUp .7s .3s ease both;
+      border: 1px solid rgba(0,0,0,.05);
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: .78rem;
+      font-weight: 500;
+    }
+
+    .badge-ready {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+    .badge-ready::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #43a047;
+      animation: pulse 2s infinite;
+    }
+
+    .badge-warn {
+      background: #fff8e1;
+      color: #f57f17;
+    }
+
+    .stat-text {
+      font-size: .82rem;
+      color: var(--muted);
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed #dddde8;
+      border-radius: var(--radius);
+      padding: 52px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .25s cubic-bezier(.4,0,.2,1);
+      position: relative;
+      overflow: hidden;
+      background: #fafafa;
+    }
+
+    .drop-zone::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(61,90,254,.06), rgba(0,229,255,.04));
+      opacity: 0;
+      transition: opacity .25s;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: white;
+    }
+
+    .drop-zone:hover::before,
+    .drop-zone.drag-over::before {
+      opacity: 1;
+    }
+
+    .drop-zone.drag-over {
+      transform: scale(1.01);
+      box-shadow: 0 0 0 4px rgba(61,90,254,.12);
+    }
+
+    .drop-icon {
+      width: 60px; height: 60px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 8px 24px rgba(61,90,254,.3);
+    }
+
+    .drop-icon svg { color: white; }
+
+    .drop-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+
+    .drop-sub {
+      font-size: .85rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .drop-link {
+      color: var(--accent);
+      cursor: pointer;
+      font-weight: 500;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(61,90,254,.3);
+      transition: border-color .2s;
+    }
+    .drop-link:hover { border-color: var(--accent); }
+
+    /* Preview */
+    .preview-zone {
+      margin: 24px 0;
+      display: none;
+      animation: fadeUp .4s ease both;
+    }
+
+    .preview-inner {
+      position: relative;
+      display: inline-block;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .preview-inner img {
+      max-height: 240px;
+      max-width: 100%;
+      display: block;
+      border-radius: var(--radius);
+      object-fit: cover;
+    }
+
+    .preview-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,.5) 0%, transparent 50%);
+      border-radius: var(--radius);
+      display: flex; align-items: flex-end; padding: 16px;
+    }
+
+    .preview-name {
+      font-size: .8rem;
+      color: white;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+    }
+
+    /* Button */
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%;
+      margin-top: 24px;
+      padding: 18px 32px;
+      background: var(--ink);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'Syne', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: .01em;
+      cursor: pointer;
+      transition: all .22s cubic-bezier(.4,0,.2,1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      opacity: 0;
+      transition: opacity .22s;
+    }
+
+    .btn:hover:not(:disabled)::before { opacity: 1; }
+    .btn span { position: relative; z-index: 1; }
+
+    .btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(61,90,254,.35);
+    }
+
+    .btn:disabled {
+      background: #e8e8f0;
+      color: #b0b0c8;
+      cursor: not-allowed;
+    }
+
+    /* ── FEATURES ── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 56px;
+      padding: 0 24px;
+      max-width: 900px;
+      width: 100%;
+      position: relative; z-index: 1;
+      animation: fadeUp .7s .4s ease both;
+    }
+
+    .feature {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 28px;
+      border: 1px solid rgba(0,0,0,.05);
+      transition: transform .22s, box-shadow .22s;
+    }
+
+    .feature:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(0,0,0,.08);
+    }
+
+    .feature-icon {
+      font-size: 1.6rem;
+      margin-bottom: 12px;
+    }
+
+    .feature-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: .92rem;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+
+    .feature-desc {
+      font-size: .8rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      font-size: .78rem;
+      color: var(--muted);
+      position: relative; z-index: 1;
+      border-top: 1px solid rgba(0,0,0,.06);
+      margin-top: 24px;
+    }
+
+    @media (max-width: 640px) {
+      nav { padding: 16px 20px; }
+      .card { padding: 28px 20px; border-radius: 20px; }
+      .features { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a class="nav-logo" href="/">
+      <span class="nav-logo-dot"></span>
+      Visual Search
+    </a>
+    <span class="nav-badge">Powered by ResNet50</span>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="hero-tag">Moteur de recherche visuel</div>
+
+    <h1 class="hero-title">
+      Trouvez par<br><span>l'image</span>
+    </h1>
+
+    <p class="hero-sub">
+      Uploadez une photo et découvrez instantanément
+      les vêtements les plus similaires dans notre catalogue.
+    </p>
+
+    <!-- CARD -->
+    <div class="card">
+      <div class="stats-bar">
+        {% if index_ready %}
+          <span class="badge badge-ready">Index actif</span>
+          <span class="stat-text">{{ n_images|default(0) }} images indexées</span>
+        {% else %}
+          <span class="badge badge-warn">Index non construit</span>
+          <code style="font-size:.75rem;color:var(--muted)">python build_index.py</code>
+        {% endif %}
+      </div>
+
+      <!-- Drop zone -->
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <p class="drop-title">Glissez votre image ici</p>
+        <p class="drop-sub">
+          ou <label for="fileInput" class="drop-link">parcourez vos fichiers</label><br>
+          JPG, PNG, WEBP — max 16 MB
+        </p>
+        <input type="file" id="fileInput" accept="image/*" hidden>
+      </div>
+
+      <!-- Preview -->
+      <div class="preview-zone" id="previewZone">
+        <div class="preview-inner">
+          <img id="previewImg" src="" alt="Aperçu">
+          <div class="preview-overlay">
+            <span class="preview-name" id="previewName"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <form id="searchForm" action="/search" method="POST" enctype="multipart/form-data">
+        <input type="file" name="image" id="hiddenFile" hidden>
+        <button type="submit" class="btn" id="searchBtn" disabled>
+          <span>Rechercher des images similaires</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </button>
+      </form>
+    </div>
+
+    <!-- Features -->
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🧠</div>
+        <div class="feature-title">ResNet50</div>
+        <div class="feature-desc">Embeddings 2048-dim extraits par transfer learning sur ImageNet</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Recherche rapide</div>
+        <div class="feature-desc">Similarité cosinus sur index vectoriel — résultats en millisecondes</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">👗</div>
+        <div class="feature-title">Mode visuel</div>
+        <div class="feature-desc">5 756 vêtements indexés — couleur, texture, forme analysées</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Moteur de Recherche Visuel &nbsp;·&nbsp; ResNet50 + Sklearn &nbsp;·&nbsp; Clothing Dataset CODAIT
+  </footer>
+
+  <script>
+    const dropZone   = document.getElementById('dropZone');
+    const fileInput  = document.getElementById('fileInput');
+    const hiddenFile = document.getElementById('hiddenFile');
+    const previewZone= document.getElementById('previewZone');
+    const previewImg = document.getElementById('previewImg');
+    const previewName= document.getElementById('previewName');
+    const searchBtn  = document.getElementById('searchBtn');
+
+    function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        previewImg.src = e.target.result;
+        previewName.textContent = file.name;
+        previewZone.style.display = 'block';
+        dropZone.style.display = 'none';
+        searchBtn.disabled = false;
+      };
+      reader.readAsDataURL(file);
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      hiddenFile.files = dt.files;
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      handleFile(e.dataTransfer.files[0]);
+    });
+
+    // Loading state
+    document.getElementById('searchForm').addEventListener('submit', () => {
+      searchBtn.innerHTML = '<span>Analyse en cours...</span>';
+      searchBtn.disabled = true;
+    });
+  </script>
+</body>
+</html>
