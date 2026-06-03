@@ -9,6 +9,7 @@ Utilisation :
     python build_index.py --data_dir clothing-dataset
 """
 import os
+import csv
 import json
 import argparse
 import logging
@@ -42,13 +43,37 @@ def resolve_data_dir(data_dir: str) -> Path:
     return candidate
 
 
-def scan_images(root: Path):
+def load_csv_labels(data_dir: Path):
+    """Charge le mapping UUID -> label depuis images.csv."""
+    csv_path = data_dir / "images.csv"
+    uuid_to_label = {}
+
+    if not csv_path.exists():
+        logger.warning(f"CSV non trouvé : {csv_path}")
+        return uuid_to_label
+
+    try:
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f, delimiter=',')
+            for row in reader:
+                if 'image' in row and 'label' in row:
+                    uuid_to_label[row['image']] = row['label']
+        logger.info(f"Loaded {len(uuid_to_label)} labels from CSV")
+    except Exception as e:
+        logger.warning(f"Erreur lors du chargement du CSV : {e}")
+
+    return uuid_to_label
+
+
+def scan_images(root: Path, uuid_to_label: dict):
     """Scanne récursivement les images et retourne (paths, labels)."""
     paths, labels = [], []
     for p in sorted(root.rglob("*")):
         if p.suffix.lower() in SUPPORTED:
+            uuid = p.stem
+            label = uuid_to_label.get(uuid, p.parent.name)
             paths.append(str(p))
-            labels.append(p.parent.name)
+            labels.append(label)
     return paths, labels
 
 
@@ -61,7 +86,8 @@ def main(data_dir: str, batch_size: int = 32):
             return False
 
         logger.info(f"Scan des images dans : {root}")
-        paths, labels = scan_images(root)
+        uuid_to_label = load_csv_labels(root)
+        paths, labels = scan_images(root, uuid_to_label)
         logger.info(f"{len(paths):,} images trouvées")
         logger.info(f"{len(set(labels))} catégories : {sorted(set(labels))}")
 
